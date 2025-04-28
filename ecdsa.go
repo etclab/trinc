@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"math/big"
 	"os"
 
 	"github.com/etclab/mu"
@@ -130,4 +131,19 @@ func GenerateECDSAKey() *ecdsa.PrivateKey {
 		mu.Panicf("ecdsa.GenerateKey: %v", err)
 	}
 	return sk
+}
+
+type ECDSASignature struct {
+	R, S *big.Int
+}
+
+func NewECDSASignature(r []byte, s []byte) *ECDSASignature {
+	sig := new(ECDSASignature)
+	sig.R = new(big.Int).SetBytes(r)
+	sig.S = new(big.Int).SetBytes(s)
+	return sig
+}
+
+func VerifyECDSA(pk *ecdsa.PublicKey, hash []byte, sig *ECDSASignature) bool {
+	return ecdsa.Verify(pk, hash, sig.R, sig.S)
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"os"
 
@@ -216,13 +215,7 @@ func (tk *Trinket) CounterValue() uint64 {
 		mu.Panicf("Calling TPM2_NV_Read: %v", err)
 	}
 
-	var val uint64
-	err = binary.Read(bytes.NewReader(resp.Data.Buffer), binary.BigEndian, &val)
-	if err != nil {
-		mu.Panicf("Parsing counter: %v", err)
-	}
-
-	return val
+	return BinaryToUint64(resp.Data.Buffer)
 }
 
 func (tk *Trinket) IncrementCounter() {
@@ -244,8 +237,16 @@ func (tk *Trinket) IncrementCounter() {
 	}
 }
 
-func (tk *Trinket) Attest(msg []byte) error {
-	digest := sha256.Sum256(msg)
+func (tk *Trinket) Attest(hash []byte) *ECDSASignature {
+	c := tk.CounterValue()
+	tk.IncrementCounter()
+	c_prime := tk.CounterValue()
+
+	var b bytes.Buffer
+	b.Write(Uint64ToBinary(c))
+	b.Write(Uint64ToBinary(c_prime))
+	b.Write(hash)
+	digest := sha256.Sum256(b.Bytes())
 
 	cmd := tpm2.Sign{
 		KeyHandle: tpm2.NamedHandle{
@@ -260,7 +261,17 @@ func (tk *Trinket) Attest(msg []byte) error {
 		},
 	}
 
-	_, err := cmd.Execute(tk.TPM)
+	resp, err := cmd.Execute(tk.TPM)
+	if err != nil {
+		mu.Panicf("error: TPM2_Sign failed: %v", err)
+	}
 
-	return err
+	tpmSig, err := resp.Signature.Signature.ECDSA()
+	if err != nil {
+		mu.Panicf("error: failed to parse TPM signature: %v", err)
+	}
+
+	sig := NewECDSASignature(tpmSig.SignatureR.Buffer, tpmSig.SignatureS.Buffer)
+
+	return sig
 }
