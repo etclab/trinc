@@ -53,8 +53,8 @@ func (tk *Trinket) DestroyKey() {
 }
 
 func (tk *Trinket) Close() {
-	// TODO: DestroyCounter
-
+	fmt.Println("Closing TPM...")
+	tk.DestroyCounter()
 	tk.DestroyKey()
 	tk.TPM.Close()
 }
@@ -76,7 +76,8 @@ func (tk *Trinket) LoadECDSAPrivateKey(sk *ecdsa.PrivateKey) error {
 			Type:    tpm2.TPMAlgECC,
 			NameAlg: tpm2.TPMAlgSHA256,
 			ObjectAttributes: tpm2.TPMAObject{
-				SignEncrypt: true,
+				SignEncrypt:  true,
+				UserWithAuth: true,
 			},
 			Parameters: tpm2.NewTPMUPublicParms(
 				tpm2.TPMAlgECC,
@@ -175,6 +176,10 @@ func (tk *Trinket) CreateCounter() {
 }
 
 func (tk *Trinket) DestroyCounter() {
+	if tk.Counter == nil {
+		return
+	}
+
 	pub := tk.CounterPublicContents()
 	readPubResp := tk.ReadPublic()
 
@@ -189,10 +194,13 @@ func (tk *Trinket) DestroyCounter() {
 	_, err := cmd.Execute(tk.TPM)
 	if err != nil {
 		fmt.Printf("could not undefine NV index: %v\n", err)
+		return
 	}
+
+	tk.Counter = nil
 }
 
-func (tk *Trinket) CounterValue() uint64 {
+func (tk *Trinket) ReadCounter() uint64 {
 	pub := tk.CounterPublicContents()
 	readPubResp := tk.ReadPublic()
 
@@ -237,14 +245,26 @@ func (tk *Trinket) IncrementCounter() {
 	}
 }
 
-func (tk *Trinket) Attest(hash []byte) *ECDSASignature {
-	c := tk.CounterValue()
+type Attestation struct {
+	OldCounter uint64
+	NewCounter uint64
+	MsgHash    []byte
+	Signature  *ECDSASignature
+}
+
+func (a *Attestation) String() string {
+	return fmt.Sprintf("Attestation{OldCounter: %d, NewCounter: %d, MsgHash: %x, Signature: {R: %x S: %x}",
+		a.OldCounter, a.NewCounter, a.MsgHash, a.Signature.R, a.Signature.S)
+}
+
+func (tk *Trinket) Attest(hash []byte) *Attestation {
+	oldCounter := tk.ReadCounter()
 	tk.IncrementCounter()
-	c_prime := tk.CounterValue()
+	newCounter := tk.ReadCounter()
 
 	var b bytes.Buffer
-	b.Write(Uint64ToBinary(c))
-	b.Write(Uint64ToBinary(c_prime))
+	b.Write(Uint64ToBinary(oldCounter))
+	b.Write(Uint64ToBinary(newCounter))
 	b.Write(hash)
 	digest := sha256.Sum256(b.Bytes())
 
@@ -273,5 +293,10 @@ func (tk *Trinket) Attest(hash []byte) *ECDSASignature {
 
 	sig := NewECDSASignature(tpmSig.SignatureR.Buffer, tpmSig.SignatureS.Buffer)
 
-	return sig
+	return &Attestation{
+		OldCounter: oldCounter,
+		NewCounter: newCounter,
+		MsgHash:    hash,
+		Signature:  sig,
+	}
 }

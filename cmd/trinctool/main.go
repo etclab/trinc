@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"flag"
 	"fmt"
 	"log"
@@ -11,8 +12,8 @@ import (
 	"github.com/etclab/trinc"
 )
 
-const usage = `ecdsatool [options]
-    -cmd [genkey|loadkey]
+const usage = `trinctool [options]
+    -cmd [genkey|loadkey|readcounter|inccounter]
     
     -sk SECRET_KEY_FILE
         The file with the secret ECDSA key.
@@ -36,9 +37,10 @@ Examples:
 `
 
 type Options struct {
-	cmd    string
-	skFile string
-	pkFile string
+	cmd     string
+	skFile  string
+	pkFile  string
+	msgFile string
 }
 
 func printUsage() {
@@ -52,6 +54,7 @@ func parseOptions() *Options {
 	flag.StringVar(&options.cmd, "cmd", "genkey", "")
 	flag.StringVar(&options.skFile, "sk", "sk.key", "")
 	flag.StringVar(&options.pkFile, "pk", "pk.key", "")
+	flag.StringVar(&options.msgFile, "msg", "msg.txt", "")
 
 	flag.Parse()
 
@@ -91,6 +94,46 @@ func doLoadKey(skFile string) {
 	log.Printf("loaded private key: KeyHandle=%v KeyName=%v", tk.KeyHandle, tk.KeyName)
 }
 
+func doIncCounter() {
+	tk := trinc.NewTrinket(trinc.DefaultTPMDevPath)
+	defer tk.Close()
+
+	tk.CreateCounter()
+	tk.IncrementCounter()
+	v := tk.ReadCounter()
+
+	fmt.Printf("counter = %d\n", v)
+}
+
+func doAttest(skFile, msgFile string) {
+	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(skFile)
+	if err != nil {
+		mu.Fatalf("error: can't load private key file %q: %v", skFile, err)
+	}
+
+	data, err := os.ReadFile(msgFile)
+	if err != nil {
+		mu.Fatalf("error: can't read message file %q: %v", msgFile, err)
+	}
+	hash := sha256.Sum256(data)
+
+	tk := trinc.NewTrinket(trinc.DefaultTPMDevPath)
+	defer tk.Close()
+
+	err = tk.LoadECDSAPrivateKey(sk)
+	if err != nil {
+		mu.Fatalf("error: can't load private key file into tpm %v", err)
+	}
+
+	log.Printf("loaded private key: KeyHandle=%v KeyName=%v", tk.KeyHandle, tk.KeyName)
+
+	tk.CreateCounter()
+	tk.IncrementCounter() // need to increment once before using
+
+	attestation := tk.Attest(hash[:])
+	fmt.Println(attestation)
+}
+
 func main() {
 	options := parseOptions()
 
@@ -99,6 +142,10 @@ func main() {
 		doGenKey(options.skFile, options.pkFile)
 	case "loadkey":
 		doLoadKey(options.skFile)
+	case "inccounter":
+		doIncCounter()
+	case "attest":
+		doAttest(options.skFile, options.msgFile)
 	default:
 		mu.Fatalf("unknown command: %q", options.cmd)
 	}
