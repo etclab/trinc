@@ -20,7 +20,7 @@ func MarshalECDSAPrivateKeyToPEM(sk *ecdsa.PrivateKey) ([]byte, error) {
 	}
 
 	block := &pem.Block{
-		Type:  "PUBLIC KEY",
+		Type:  "PRIVATE KEY",
 		Bytes: derData,
 	}
 

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"fmt"
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
@@ -67,17 +66,6 @@ func (tk *Trinket) Close() {
 	}
 }
 
-type CounterAttestation struct {
-	Counter   uint64
-	MsgHash   []byte
-	Signature *ECDSASignature
-}
-
-func (ca *CounterAttestation) String() string {
-	return fmt.Sprintf("CounterAttestation{Counter: %d, MsgHash: %x, Signature: {R: %x S: %x}",
-		ca.Counter, ca.MsgHash, ca.Signature.R, ca.Signature.S)
-}
-
 func (tk *Trinket) AttestCounter(hash []byte) (*CounterAttestation, error) {
 	err := tk.Counter.Increment()
 	if err != nil {
@@ -127,16 +115,6 @@ func (tk *Trinket) AttestCounter(hash []byte) (*CounterAttestation, error) {
 	}
 
 	return attestation, nil
-}
-
-type NVPCRAttestation struct {
-	NVPCR     []byte
-	Signature *ECDSASignature
-}
-
-func (na *NVPCRAttestation) String() string {
-	return fmt.Sprintf("NVPCRAttestation{NVPCR: %x, Signature: {R: %x S: %x}",
-		na.NVPCR, na.Signature.R, na.Signature.S)
 }
 
 func (tk *Trinket) AttestNVPCR(hash []byte) (*NVPCRAttestation, error) {
