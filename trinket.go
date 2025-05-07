@@ -1,9 +1,7 @@
 package trinc
 
 import (
-	"bytes"
 	"crypto/ecdsa"
-	"crypto/sha256"
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
@@ -77,10 +75,7 @@ func (tk *Trinket) AttestCounter(hash []byte) (*CounterAttestation, error) {
 		return nil, err
 	}
 
-	var b bytes.Buffer
-	b.Write(Uint64ToBinary(counterValue))
-	b.Write(hash)
-	digest := sha256.Sum256(b.Bytes())
+	digest := MakeCounterAttestationHash(counterValue, hash)
 
 	// simulate NVCertify because our physical TPMs do not support it
 	cmd := tpm2.Sign{
@@ -89,7 +84,7 @@ func (tk *Trinket) AttestCounter(hash []byte) (*CounterAttestation, error) {
 			Name:   tk.Key.Name,
 		},
 		Digest: tpm2.TPM2BDigest{
-			Buffer: digest[:],
+			Buffer: digest,
 		},
 		Validation: tpm2.TPMTTKHashCheck{
 			Tag: tpm2.TPMSTHashCheck,
