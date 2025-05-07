@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/etclab/mu"
@@ -13,7 +12,7 @@ import (
 )
 
 const usage = `trinctool [options]
-    -cmd [genkey|loadkey|readcounter|inccounter|certify]
+    -cmd [genkey|attestctr|attestpcr]
     
     -sk SECRET_KEY_FILE
         The file with the secret ECDSA key.
@@ -41,6 +40,7 @@ type Options struct {
 	skFile  string
 	pkFile  string
 	msgFile string
+	sigFile string
 }
 
 func printUsage() {
@@ -55,6 +55,7 @@ func parseOptions() *Options {
 	flag.StringVar(&options.skFile, "sk", "sk.key", "")
 	flag.StringVar(&options.pkFile, "pk", "pk.key", "")
 	flag.StringVar(&options.msgFile, "msg", "msg.txt", "")
+	flag.StringVar(&options.msgFile, "sig", "msg.sig", "")
 
 	flag.Parse()
 
@@ -77,106 +78,71 @@ func doGenKey(skFile, pkFile string) {
 	}
 }
 
-func doLoadKey(skFile string) {
-	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(skFile)
-	if err != nil {
-		mu.Fatalf("error: can't load private key file %q: %v", skFile, err)
-	}
-
-	tk := trinc.NewTrinket(trinc.DefaultTPMDevPath)
-	defer tk.Close()
-
-	err = tk.LoadECDSAPrivateKey(sk)
-	if err != nil {
-		mu.Fatalf("error: can't load private key file into tpm %v", err)
-	}
-
-	log.Printf("loaded private key: KeyHandle=%v KeyName=%v", tk.KeyHandle, tk.KeyName)
-}
-
-func doIncCounter() {
-	tk := trinc.NewTrinket(trinc.DefaultTPMDevPath)
-	defer tk.Close()
-
-	tk.CreateCounter()
-	tk.IncrementCounter()
-	v := tk.ReadCounter()
-
-	fmt.Printf("counter = %d\n", v)
-}
-
-func doAttest(skFile, msgFile string) {
-	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(skFile)
-	if err != nil {
-		mu.Fatalf("error: can't load private key file %q: %v", skFile, err)
-	}
-
+func doAttestCounter(skFile, msgFile, sigFile string) {
 	data, err := os.ReadFile(msgFile)
 	if err != nil {
 		mu.Fatalf("error: can't read message file %q: %v", msgFile, err)
 	}
 	hash := sha256.Sum256(data)
 
-	tk := trinc.NewTrinket(trinc.DefaultTPMDevPath)
-	defer tk.Close()
-
-	err = tk.LoadECDSAPrivateKey(sk)
+	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(skFile)
 	if err != nil {
-		mu.Fatalf("error: can't load private key file into tpm %v", err)
+		mu.Fatalf("error: can't load private key file %q: %v", skFile, err)
 	}
 
-	log.Printf("loaded private key: KeyHandle=%v KeyName=%v", tk.KeyHandle, tk.KeyName)
+	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
+	if err != nil {
+		mu.Fatalf("error: can't create trinket: %v", err)
+	}
+	defer tk.Close()
 
-	tk.CreateCounter()
-	tk.IncrementCounter() // need to increment once before using
-
-	attestation := tk.Attest(hash[:])
+	attestation, err := tk.AttestCounter(hash[:])
+	if err != nil {
+		mu.Fatalf("error: can't generate attestation: %v", err)
+	}
 	fmt.Println(attestation)
+
+	mu.UNUSED(sigFile)
 }
 
-func doCertify(skFile, msgFile string) {
-	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(skFile)
-	if err != nil {
-		mu.Fatalf("error: can't load private key file %q: %v", skFile, err)
-	}
-
+func doAttestNVPCR(skFile, msgFile, sigFile string) {
 	data, err := os.ReadFile(msgFile)
 	if err != nil {
 		mu.Fatalf("error: can't read message file %q: %v", msgFile, err)
 	}
 	hash := sha256.Sum256(data)
 
-	tk := trinc.NewTrinket(trinc.DefaultTPMDevPath)
-	defer tk.Close()
-
-	err = tk.LoadECDSAPrivateKey(sk)
+	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(skFile)
 	if err != nil {
-		mu.Fatalf("error: can't load private key file into tpm %v", err)
+		mu.Fatalf("error: can't load private key file %q: %v", skFile, err)
 	}
 
-	log.Printf("loaded private key: KeyHandle=%v KeyName=%v", tk.KeyHandle, tk.KeyName)
+	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
+	if err != nil {
+		mu.Fatalf("error: can't create trinket: %v", err)
+	}
+	defer tk.Close()
 
-	tk.CreateCounter()
-	tk.IncrementCounter() // need to increment once before using
+	attestation, err := tk.AttestNVPCR(hash[:])
+	if err != nil {
+		mu.Fatalf("error: can't generate attestation: %v", err)
+	}
+	fmt.Println(attestation)
 
-	certificate := tk.Certify(hash[:])
-	fmt.Println(certificate)
+	mu.UNUSED(sigFile)
 }
 
 func main() {
 	options := parseOptions()
 
+	// TODO: verify attestations
 	switch options.cmd {
 	case "genkey":
 		doGenKey(options.skFile, options.pkFile)
-	case "loadkey":
-		doLoadKey(options.skFile)
-	case "inccounter":
-		doIncCounter()
-	case "attest":
-		doAttest(options.skFile, options.msgFile)
-	case "certify":
-		doCertify(options.skFile, options.msgFile)
+	case "attestctr":
+		doAttestCounter(options.skFile, options.msgFile, options.sigFile)
+	case "attestpcr":
+		doAttestNVPCR(options.skFile, options.msgFile, options.sigFile)
 	default:
 		mu.Fatalf("unknown command: %q", options.cmd)
 	}
