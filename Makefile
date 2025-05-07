@@ -15,7 +15,7 @@ fmt:
 	$(GO) fmt ./...
 
 test: vet
-	sudo $(GO) test -v
+	sudo $(GO) test -v -count=1
 
 clean:
 	rm -f $(progs)
