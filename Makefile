@@ -1,15 +1,21 @@
 progs= trinctool
 
+# this is so sudo can find the go binary
+GO=/usr/local/go/bin/go
+
 all: $(progs)
 
 $(progs): % : vet
-	go build ./cmd/$@
+	$(GO) build ./cmd/$@
 
 vet: fmt
-	go vet ./...
+	$(GO) vet ./...
 
 fmt:
-	go fmt ./...
+	$(GO) fmt ./...
+
+test: vet
+	sudo $(GO) test -v
 
 clean:
 	rm -f $(progs)
