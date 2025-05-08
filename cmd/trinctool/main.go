@@ -128,7 +128,12 @@ func doAttestNVPCR(skFile, msgFile, attestationFile string) {
 	}
 	defer tk.Close()
 
-	a, err := tk.AttestNVPCR(hash)
+	err = tk.ExtendNVPCR(hash)
+	if err != nil {
+		mu.Fatalf("error: can't extend nvpcr: %v", err)
+	}
+
+	a, err := tk.AttestNVPCR()
 	if err != nil {
 		mu.Fatalf("error: can't generate attestation: %v", err)
 	}

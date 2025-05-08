@@ -112,12 +112,11 @@ func (tk *Trinket) AttestCounter(hash []byte) (*CounterAttestation, error) {
 	return attestation, nil
 }
 
-func (tk *Trinket) AttestNVPCR(hash []byte) (*NVPCRAttestation, error) {
-	err := tk.NVPCR.Extend(hash)
-	if err != nil {
-		return nil, err
-	}
+func (tk *Trinket) ExtendNVPCR(hash []byte) error {
+	return tk.NVPCR.Extend(hash)
+}
 
+func (tk *Trinket) AttestNVPCR() (*NVPCRAttestation, error) {
 	val, err := tk.NVPCR.Read()
 	if err != nil {
 		return nil, err

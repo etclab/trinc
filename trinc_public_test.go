@@ -73,3 +73,53 @@ func TestAttestCounter(t *testing.T) {
 		t.Fatalf("attestation MsgHash != expected hash")
 	}
 }
+
+func TestAttestNVPCR(t *testing.T) {
+	skFile := "testdata/sk.key"
+	pkFile := "testdata/pk.key"
+	msgFile := "testdata/dorothy.txt"
+
+	hash, err := hashFile(msgFile)
+	if err != nil {
+		t.Fatalf("can't hash msg file %q: %v", msgFile, err)
+	}
+
+	b := make([]byte, 32)
+	b = append(b, hash[:]...)
+	expected := sha256.Sum256(b)
+
+	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(skFile)
+	if err != nil {
+		t.Fatalf("can't read private key file %q: %v", skFile, err)
+	}
+
+	pk, err := trinc.LoadECDSAPublicKeyFromPEMFile(pkFile)
+	if err != nil {
+		t.Fatalf("error: can't read public key file %q: %v", pkFile, err)
+	}
+
+	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
+	if err != nil {
+		t.Fatalf("can't create trinket: %v", err)
+	}
+	defer tk.Close()
+
+	err = tk.ExtendNVPCR(hash)
+	if err != nil {
+		t.Fatalf("error: can't extend nvpcr: %v", err)
+	}
+
+	a, err := tk.AttestNVPCR()
+	if err != nil {
+		t.Fatalf("error: can't generate nvpcr attestation: %v", err)
+	}
+
+	result := a.Verify(pk)
+	if !result {
+		t.Fatalf("attestation has an invalid signature")
+	}
+
+	if !bytes.Equal(a.NVPCR, expected[:]) {
+		t.Fatalf("attestation's NVPCR != expected hash")
+	}
+}
