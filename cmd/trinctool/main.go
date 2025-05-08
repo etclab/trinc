@@ -174,17 +174,17 @@ func doVerifyCounter(pkFile, msgFile, attestationFile string) {
 	fmt.Println("attestation verified successfully")
 }
 
-func doVerifyPCR(pkFile, nvpcrFile, attestationFile string) {
+func doVerifyPCR(pkFile, msgFile, attestationFile string) {
 	pk, err := trinc.LoadECDSAPublicKeyFromPEMFile(pkFile)
 	if err != nil {
 		mu.Fatalf("error: can't read public key file %q: %v", pkFile, err)
 	}
 
-	expected, err := os.ReadFile(nvpcrFile)
-	if err != nil {
-		mu.Fatalf("error: can't read nvpcr file %q: %v", nvpcrFile, err)
-	}
-	fmt.Printf("expected hash: %x\n", expected)
+	hash := hashFile(msgFile)
+	b := make([]byte, 32)
+	b = append(b, hash[:]...)
+	expected := sha256.Sum256(b)
+	fmt.Printf("expected nvpcr: %x\n", hash)
 
 	a, err := trinc.LoadNVPCRAttestationFromFile(attestationFile)
 	if err != nil {
@@ -198,7 +198,7 @@ func doVerifyPCR(pkFile, nvpcrFile, attestationFile string) {
 		os.Exit(1)
 	}
 
-	if !bytes.Equal(a.NVPCR, expected) {
+	if !bytes.Equal(a.NVPCR, expected[:]) {
 		fmt.Println("failure: attestation NVPCR != expected hash")
 		os.Exit(1)
 	}
