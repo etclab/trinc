@@ -56,7 +56,7 @@ func parseOptions() *Options {
 	flag.StringVar(&options.skFile, "sk", "sk.key", "")
 	flag.StringVar(&options.pkFile, "pk", "pk.key", "")
 	flag.StringVar(&options.msgFile, "msg", "msg.txt", "")
-	flag.StringVar(&options.attestationFile, "attestation", "msg.attest", "")
+	flag.StringVar(&options.attestationFile, "attestation", "attest.json", "")
 
 	flag.Parse()
 
@@ -102,7 +102,7 @@ func doAttestCounter(skFile, msgFile, attestationFile string) {
 	}
 	defer tk.Close()
 
-	attestation, err := tk.AttestCounter(hash[:])
+	attestation, err := tk.AttestCounter(hash)
 	if err != nil {
 		mu.Fatalf("error: can't generate attestation: %v", err)
 	}
@@ -128,13 +128,13 @@ func doAttestNVPCR(skFile, msgFile, attestationFile string) {
 	}
 	defer tk.Close()
 
-	attestation, err := tk.AttestNVPCR(hash[:])
+	a, err := tk.AttestNVPCR(hash)
 	if err != nil {
 		mu.Fatalf("error: can't generate attestation: %v", err)
 	}
-	fmt.Println(attestation)
+	fmt.Println(a)
 
-	err = attestation.ToFile(attestationFile)
+	err = a.ToFile(attestationFile)
 	if err != nil {
 		mu.Fatalf("error: can't write attestation to file %q: %v", attestationFile, err)
 	}
@@ -147,6 +147,7 @@ func doVerifyCounter(pkFile, msgFile, attestationFile string) {
 	}
 
 	hash := hashFile(msgFile)
+	fmt.Printf("expected hash: %x\n", hash)
 
 	a, err := trinc.LoadCounterAttestationFromFile(attestationFile)
 	if err != nil {
@@ -160,7 +161,7 @@ func doVerifyCounter(pkFile, msgFile, attestationFile string) {
 		os.Exit(1)
 	}
 
-	if bytes.Equal(a.MsgHash, hash) {
+	if !bytes.Equal(a.MsgHash, hash) {
 		fmt.Println("failure: attestation MsgHash != expected hash")
 		os.Exit(1)
 	}
@@ -178,6 +179,7 @@ func doVerifyPCR(pkFile, nvpcrFile, attestationFile string) {
 	if err != nil {
 		mu.Fatalf("error: can't read nvpcr file %q: %v", nvpcrFile, err)
 	}
+	fmt.Printf("expected hash: %x\n", expected)
 
 	a, err := trinc.LoadNVPCRAttestationFromFile(attestationFile)
 	if err != nil {
@@ -191,7 +193,7 @@ func doVerifyPCR(pkFile, nvpcrFile, attestationFile string) {
 		os.Exit(1)
 	}
 
-	if bytes.Equal(a.NVPCR, expected) {
+	if !bytes.Equal(a.NVPCR, expected) {
 		fmt.Println("failure: attestation NVPCR != expected hash")
 		os.Exit(1)
 	}
