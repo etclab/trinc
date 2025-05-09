@@ -17,6 +17,9 @@ fmt:
 test: vet
 	sudo $(GO) test -v -count=1 -cover
 
+benchmark: vet
+	sudo $(GO) test -v -bench=. -benchmem
+
 clean:
 	rm -f $(progs)
 
