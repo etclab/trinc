@@ -8,7 +8,7 @@ import (
 	"github.com/google/go-tpm/tpm2/transport/linuxtpm"
 )
 
-const DefaultTPMDevPath = "/dev/tpm0"
+const DefaultTPMDevPath = "/dev/tpmrm0"
 
 type Trinket struct {
 	TPM     transport.TPMCloser
