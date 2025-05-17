@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: trinc-test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: trinc-test
+      image: atosh502/trinctool 
+      resources:
+        limits:
+          tpm.boxboat.io/tpmrm: 1
+  nodeSelector:
+    kubernetes.io/hostname: "node-1"
+      
