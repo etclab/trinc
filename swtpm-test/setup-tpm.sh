@@ -14,6 +14,13 @@ mecho() {
 }
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+mkdir -p ${HOME}/src
+SRC="${HOME}/src"
+
+LIBTPMS_DIR="$SRC/libtpms"
+SWTTPM_DIR="$SRC/swtpm"
+TPM2_TSS_DIR="$SRC/tpm2-tss"
+TPM2_TOOLS_DIR="$SRC/tpm2-tools"
 
 for cmd in "$@"; do
     case $cmd in
@@ -29,25 +36,30 @@ for cmd in "$@"; do
 done
 
 if [[ "$delete_all" == "true" ]]; then
-    cd libtpms/
+    cd ${LIBTPMS_DIR}
     sudo make uninstall
     cd -
-    rm -rf libtpms/
+    rm -rf ${LIBTPMS_DIR}
 
-    cd swtpm/
+    cd ${SWTTPM_DIR}
     sudo make uninstall
     cd -
-    rm -rf swtpm/
+    rm -rf ${SWTTPM_DIR}
 
-    cd tpm2-tss/
+    cd ${TPM2_TSS_DIR}
     sudo make uninstall
     cd -
-    rm -rf tpm2-tss/
+    rm -rf ${TPM2_TSS_DIR}
 
-    cd tpm2-tools/
+    cd ${TPM2_TOOLS_DIR}
     sudo make uninstall
     cd - 
-    rm -rf tpm2-tools
+    rm -rf ${TPM2_TOOLS_DIR}
+
+    sudo rm -rf /tmp/myvtpm2
+    sudo rm -rf /tmp/swtpm_cuse.log
+
+    sudo pkill swtpm_cuse
 fi
 
 if [[ "$setup_libs" == "true" ]]; then
@@ -56,8 +68,8 @@ if [[ "$setup_libs" == "true" ]]; then
 
     sudo apt install libc6-dev libgmp-dev libnspr4-dev libnss3-dev autoconf \
     libtool pkg-config libssl-dev build-essential -y
-    git clone https://github.com/stefanberger/libtpms.git
-    cd libtpms
+    git clone https://github.com/stefanberger/libtpms.git $LIBTPMS_DIR
+    cd $LIBTPMS_DIR
     ./autogen.sh --with-tpm2 --with-openssl --prefix=/usr
     make -j$(nproc)
     make check -j$(nproc)
@@ -72,8 +84,8 @@ if [[ "$setup_libs" == "true" ]]; then
         net-tools python3 python3-twisted checkpolicy socat gawk trousers \
         libgnutls30 libgnutls28-dev libtasn1-6 libtasn1-bin libtasn1-6-dev \
         gnutls-bin
-    git clone https://github.com/stefanberger/swtpm.git
-    cd swtpm
+    git clone https://github.com/stefanberger/swtpm.git $SWTTPM_DIR
+    cd $SWTTPM_DIR
     export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
     ./autogen.sh --with-tpm2 --with-openssl --prefix=/usr
     make -j$(nproc)
@@ -87,8 +99,8 @@ if [[ "$setup_libs" == "true" ]]; then
         uthash-dev autoconf doxygen libjson-c-dev libini-config-dev \
         libcurl4-openssl-dev uuid-dev libltdl-dev libusb-1.0-0-dev \
         libftdi-dev pandoc
-    git clone https://github.com/tpm2-software/tpm2-tss.git
-    cd tpm2-tss
+    git clone https://github.com/tpm2-software/tpm2-tss.git $TPM2_TSS_DIR
+    cd $TPM2_TSS_DIR
     ./bootstrap
     ./configure
     make -j$(nproc)
@@ -98,8 +110,8 @@ if [[ "$setup_libs" == "true" ]]; then
     cd -
 
     mecho "Setting up tpm2-tools"
-    git clone https://github.com/tpm2-software/tpm2-tools.git
-    cd tpm2-tools
+    git clone https://github.com/tpm2-software/tpm2-tools.git $TPM2_TOOLS_DIR
+    cd $TPM2_TOOLS_DIR
     ./bootstrap
     ./configure --prefix=/usr
     make -j$(nproc)
@@ -119,9 +131,9 @@ if [[ "$create_tpm" == "true" ]]; then
 
     mecho "Creating tpm with swtpm_setup"
     sudo swtpm_setup --tpmstate /tmp/myvtpm2 --create-ek-cert --create-platform-cert --tpm2 --overwrite
+    sleep 2
 
     mecho "Creating /dev/tpmrm0 device with swtpm_cuse"
-    sudo pkill swtpm_cuse
     sudo swtpm_cuse --tpm2 --name tpmrm0 --tpmstate dir=/tmp/myvtpm2 --flags not-need-init,startup-clear --log file=/tmp/swtpm_cuse.log,level=100
 
 fi
