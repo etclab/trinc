@@ -96,7 +96,12 @@ func doAttestCounter(skFile, msgFile, attestationFile string) {
 		mu.Fatalf("error: can't load private key file %q: %v", skFile, err)
 	}
 
-	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
+	config := trinc.Config{
+		Type: trinc.TPMTypeLinux,
+		Path: trinc.DefaultTPMDevPath,
+	}
+
+	tk, err := trinc.NewTrinket(&config, sk)
 	if err != nil {
 		mu.Fatalf("error: can't create trinket: %v", err)
 	}
@@ -122,7 +127,12 @@ func doAttestNVPCR(skFile, msgFile, attestationFile string) {
 		mu.Fatalf("error: can't load private key file %q: %v", skFile, err)
 	}
 
-	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
+	config := trinc.Config{
+		Type: trinc.TPMTypeLinux,
+		Path: trinc.DefaultTPMDevPath,
+	}
+
+	tk, err := trinc.NewTrinket(&config, sk)
 	if err != nil {
 		mu.Fatalf("error: can't create trinket: %v", err)
 	}

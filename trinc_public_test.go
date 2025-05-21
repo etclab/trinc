@@ -5,9 +5,12 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
+	"flag"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/etclab/mu"
 	"github.com/etclab/trinc"
 	"github.com/google/go-tpm/tpm2"
 )
@@ -17,6 +20,8 @@ const (
 	ECDSAPublicKeyFile  = "testdata/pk.key"
 	MsgFile             = "testdata/alice.txt"
 )
+
+var Config trinc.Config
 
 func hashFile(path string) ([]byte, error) {
 	data, err := os.ReadFile(path)
@@ -33,9 +38,23 @@ func createTrinket(t *testing.T) *trinc.Trinket {
 		t.Fatalf("can't read private key file %q: %v", ECDSAPrivateKeyFile, err)
 	}
 
-	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
+	tk, err := trinc.NewTrinket(&Config, sk)
 	if err != nil {
 		t.Fatalf("can't create trinket: %v", err)
+	}
+
+	return tk
+}
+
+func createTrinketB(b *testing.B) *trinc.Trinket {
+	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(ECDSAPrivateKeyFile)
+	if err != nil {
+		b.Fatalf("can't read private key file %q: %v", ECDSAPrivateKeyFile, err)
+	}
+
+	tk, err := trinc.NewTrinket(&Config, sk)
+	if err != nil {
+		b.Fatalf("can't create trinket: %v", err)
 	}
 
 	return tk
@@ -113,32 +132,20 @@ func TestAttestNVPCR(t *testing.T) {
 	}
 }
 
-var blackholeCounter *trinc.CounterAttestation
-
 func BenchmarkAttestCounter(b *testing.B) {
 	hash, err := hashFile(MsgFile)
 	if err != nil {
 		b.Fatalf("can't hash msg file %q: %v", MsgFile, err)
 	}
 
-	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(ECDSAPrivateKeyFile)
-	if err != nil {
-		b.Fatalf("can't read private key file %q: %v", ECDSAPrivateKeyFile, err)
-	}
-
-	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
-	if err != nil {
-		b.Fatalf("can't create trinket: %v", err)
-	}
+	tk := createTrinketB(b)
 	defer tk.Close()
 
 	for b.Loop() {
-		a, err := tk.AttestCounter(hash)
+		_, err := tk.AttestCounter(hash)
 		if err != nil {
 			b.Fatalf("error: can't generate counter attestation: %v", err)
 		}
-		// ensure compiler does not optimize away call to tk.AttestCounter()
-		blackholeCounter = a
 	}
 }
 
@@ -148,15 +155,7 @@ func BenchmarkExtendNVPCR(b *testing.B) {
 		b.Fatalf("can't hash msg file %q: %v", MsgFile, err)
 	}
 
-	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(ECDSAPrivateKeyFile)
-	if err != nil {
-		b.Fatalf("can't read private key file %q: %v", ECDSAPrivateKeyFile, err)
-	}
-
-	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
-	if err != nil {
-		b.Fatalf("can't create trinket: %v", err)
-	}
+	tk := createTrinketB(b)
 	defer tk.Close()
 
 	for b.Loop() {
@@ -167,27 +166,15 @@ func BenchmarkExtendNVPCR(b *testing.B) {
 	}
 }
 
-var blackholeNVPCR *trinc.NVPCRAttestation
-
 func BenchmarkAttestNVPCR(b *testing.B) {
-	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(ECDSAPrivateKeyFile)
-	if err != nil {
-		b.Fatalf("can't read private key file %q: %v", ECDSAPrivateKeyFile, err)
-	}
-
-	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
-	if err != nil {
-		b.Fatalf("can't create trinket: %v", err)
-	}
+	tk := createTrinketB(b)
 	defer tk.Close()
 
 	for b.Loop() {
-		a, err := tk.AttestNVPCR()
+		_, err := tk.AttestNVPCR()
 		if err != nil {
 			b.Fatalf("error: can't generate nvpcr attestation: %v", err)
 		}
-		// ensure compiler does not optimize away call to tk.AttestNVPCR()
-		blackholeNVPCR = a
 	}
 }
 
@@ -197,15 +184,7 @@ func BenchmarkExtendAndAttestNVPCR(b *testing.B) {
 		b.Fatalf("can't hash msg file %q: %v", MsgFile, err)
 	}
 
-	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(ECDSAPrivateKeyFile)
-	if err != nil {
-		b.Fatalf("can't read private key file %q: %v", ECDSAPrivateKeyFile, err)
-	}
-
-	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
-	if err != nil {
-		b.Fatalf("can't create trinket: %v", err)
-	}
+	tk := createTrinketB(b)
 	defer tk.Close()
 
 	for b.Loop() {
@@ -214,16 +193,12 @@ func BenchmarkExtendAndAttestNVPCR(b *testing.B) {
 			b.Fatalf("error: can't extend nvpcr: %v", err)
 		}
 
-		a, err := tk.AttestNVPCR()
+		_, err = tk.AttestNVPCR()
 		if err != nil {
 			b.Fatalf("error: can't generate nvpcr attestation: %v", err)
 		}
-		// ensure compiler does not optimize away call to tk.AttestNVPCR()
-		blackholeNVPCR = a
 	}
 }
-
-var blackholeSig []byte
 
 func BenchmarkSoftwareECDSASign(b *testing.B) {
 	hash, err := hashFile(MsgFile)
@@ -237,27 +212,15 @@ func BenchmarkSoftwareECDSASign(b *testing.B) {
 	}
 
 	for b.Loop() {
-		sig, err := ecdsa.SignASN1(rand.Reader, sk, hash)
+		_, err := ecdsa.SignASN1(rand.Reader, sk, hash)
 		if err != nil {
 			b.Fatalf("error: can't generate software ECDSA signature: %v", err)
 		}
-		// ensure compiler does not optimize away call to ecdsa.SignASN1
-		blackholeSig = sig
 	}
 }
 
-var blackholeSignResp *tpm2.SignResponse
-
 func BenchmarkHardwareECDSASign(b *testing.B) {
-	sk, err := trinc.LoadECDSAPrivateKeyFromPEMFile(ECDSAPrivateKeyFile)
-	if err != nil {
-		b.Fatalf("can't read private key file %q: %v", ECDSAPrivateKeyFile, err)
-	}
-
-	tk, err := trinc.NewTrinket(trinc.DefaultTPMDevPath, sk)
-	if err != nil {
-		b.Fatalf("can't create trinket: %v", err)
-	}
+	tk := createTrinketB(b)
 	defer tk.Close()
 
 	val, err := tk.NVPCR.Read()
@@ -279,11 +242,31 @@ func BenchmarkHardwareECDSASign(b *testing.B) {
 	}
 
 	for b.Loop() {
-		resp, err := cmd.Execute(tk.TPM)
+		_, err := cmd.Execute(tk.TPM)
 		if err != nil {
 			b.Fatalf("can't ECDSA-sign with TPM: %v", err)
 		}
-		// ensure compiler does not optimize away call to cmd.Execute()
-		blackholeSignResp = resp
 	}
+}
+
+func TestMain(m *testing.M) {
+	var typeStr string
+
+	flag.StringVar(&Config.Path, "path", trinc.DefaultTPMDevPath, "path to TPM device/socket")
+	flag.StringVar(&typeStr, "type", "linux", "TPM type (linux|linuxuds|simulator")
+	flag.Parse()
+
+	switch strings.ToLower(typeStr) {
+	case "linux":
+		Config.Type = trinc.TPMTypeLinux
+	case "linuxuds":
+		Config.Type = trinc.TPMTypeLinuxUDS
+	case "simulator":
+		Config.Type = trinc.TPMTypeSimulator
+	default:
+		mu.Fatalf("bad option: unknown TPM type %q", typeStr)
+	}
+
+	status := m.Run()
+	os.Exit(status)
 }

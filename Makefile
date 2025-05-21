@@ -1,3 +1,7 @@
+tpmpath= /dev/tpm0
+# linux | linuxuds | simulator
+tpmtype= linux
+
 progs= trinctool
 
 # this is so sudo can find the go binary
@@ -15,10 +19,10 @@ fmt:
 	$(GO) fmt ./...
 
 test: vet
-	sudo $(GO) test -v -count=1 -cover
+	sudo $(GO) test -v -count=1 -cover -args -path $(tpmpath) -type $(tpmtype)
 
 benchmark: vet
-	sudo $(GO) test -v -bench=. -benchmem
+	sudo $(GO) test -v -bench=. -benchmem -args -path $(tpmpath) -type $(tpmtype)
 
 clean:
 	rm -f $(progs)

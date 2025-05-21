@@ -12,7 +12,8 @@ import (
 	"github.com/google/go-tpm/tpm2/transport/simulator"
 )
 
-const DefaultTPMDevPath = "/dev/tpmrm0"
+// const DefaultTPMDevPath = "/dev/tpmrm0"
+const DefaultTPMDevPath = "/dev/tpm0"
 
 type TPMType int
 
@@ -22,7 +23,7 @@ const (
 	TPMTypeSimulator                // needs nothing
 )
 
-type TrinketConfig struct {
+type Config struct {
 	Type TPMType
 	Path string // for Linux and LinuxUDS
 }
@@ -34,16 +35,17 @@ type Trinket struct {
 	NVPCR   *NVPCR
 }
 
-func NewTrinket(config *TrinketConfig, sk *ecdsa.PrivateKey) (*Trinket, error) {
-	tk := new(Trinket)
+func NewTrinket(config *Config, sk *ecdsa.PrivateKey) (*Trinket, error) {
+	var err error
+	var tpm transport.TPMCloser
 
 	switch config.Type {
 	case TPMTypeLinux:
-		tpm, err := linuxtpm.Open(config.Path)
+		tpm, err = linuxtpm.Open(config.Path)
 	case TPMTypeLinuxUDS:
-		tpm, err := linuxudstpm.Open(config.Path)
+		tpm, err = linuxudstpm.Open(config.Path)
 	case TPMTypeSimulator:
-		tpm, err := simulator.OpenSimulator()
+		tpm, err = simulator.OpenSimulator()
 	default:
 		mu.BUG("invalid TMP type: %v", config.Type)
 	}
@@ -52,6 +54,7 @@ func NewTrinket(config *TrinketConfig, sk *ecdsa.PrivateKey) (*Trinket, error) {
 		return nil, err
 	}
 
+	tk := new(Trinket)
 	tk.TPM = tpm
 
 	tk.Key, err = LoadECDSAPrivateKey(tk.TPM, sk)
