@@ -132,7 +132,7 @@ func BenchmarkAttestCounter(b *testing.B) {
 	}
 	defer tk.Close()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		a, err := tk.AttestCounter(hash)
 		if err != nil {
 			b.Fatalf("error: can't generate counter attestation: %v", err)
@@ -159,7 +159,7 @@ func BenchmarkExtendNVPCR(b *testing.B) {
 	}
 	defer tk.Close()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		err := tk.ExtendNVPCR(hash)
 		if err != nil {
 			b.Fatalf("error: can't extend nvpcr: %v", err)
@@ -181,7 +181,7 @@ func BenchmarkAttestNVPCR(b *testing.B) {
 	}
 	defer tk.Close()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		a, err := tk.AttestNVPCR()
 		if err != nil {
 			b.Fatalf("error: can't generate nvpcr attestation: %v", err)
@@ -208,7 +208,7 @@ func BenchmarkExtendAndAttestNVPCR(b *testing.B) {
 	}
 	defer tk.Close()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		err := tk.ExtendNVPCR(hash)
 		if err != nil {
 			b.Fatalf("error: can't extend nvpcr: %v", err)
@@ -236,7 +236,7 @@ func BenchmarkSoftwareECDSASign(b *testing.B) {
 		b.Fatalf("can't read private key file %q: %v", ECDSAPrivateKeyFile, err)
 	}
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		sig, err := ecdsa.SignASN1(rand.Reader, sk, hash)
 		if err != nil {
 			b.Fatalf("error: can't generate software ECDSA signature: %v", err)
@@ -278,7 +278,7 @@ func BenchmarkHardwareECDSASign(b *testing.B) {
 		},
 	}
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		resp, err := cmd.Execute(tk.TPM)
 		if err != nil {
 			b.Fatalf("can't ECDSA-sign with TPM: %v", err)

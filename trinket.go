@@ -3,12 +3,29 @@ package trinc
 import (
 	"crypto/ecdsa"
 
+	"github.com/etclab/mu"
+
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/google/go-tpm/tpm2/transport/linuxtpm"
+	"github.com/google/go-tpm/tpm2/transport/linuxudstpm"
+	"github.com/google/go-tpm/tpm2/transport/simulator"
 )
 
 const DefaultTPMDevPath = "/dev/tpmrm0"
+
+type TPMType int
+
+const (
+	TPMTypeLinux     TPMType = iota //path string
+	TPMTypeLinuxUDS                 // socketpath string
+	TPMTypeSimulator                // needs nothing
+)
+
+type TrinketConfig struct {
+	Type TPMType
+	Path string // for Linux and LinuxUDS
+}
 
 type Trinket struct {
 	TPM     transport.TPMCloser
@@ -17,12 +34,24 @@ type Trinket struct {
 	NVPCR   *NVPCR
 }
 
-func NewTrinket(tpmPath string, sk *ecdsa.PrivateKey) (*Trinket, error) {
+func NewTrinket(config *TrinketConfig, sk *ecdsa.PrivateKey) (*Trinket, error) {
 	tk := new(Trinket)
-	tpm, err := linuxtpm.Open(tpmPath)
+
+	switch config.Type {
+	case TPMTypeLinux:
+		tpm, err := linuxtpm.Open(config.Path)
+	case TPMTypeLinuxUDS:
+		tpm, err := linuxudstpm.Open(config.Path)
+	case TPMTypeSimulator:
+		tpm, err := simulator.OpenSimulator()
+	default:
+		mu.BUG("invalid TMP type: %v", config.Type)
+	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	tk.TPM = tpm
 
 	tk.Key, err = LoadECDSAPrivateKey(tk.TPM, sk)
