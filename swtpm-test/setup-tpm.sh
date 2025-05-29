@@ -66,8 +66,9 @@ if [[ "$setup_libs" == "true" ]]; then
     
     mecho "Setting up libtpms"
 
-    sudo apt install libc6-dev libgmp-dev libnspr4-dev libnss3-dev autoconf \
-    libtool pkg-config libssl-dev build-essential -y
+    sudo apt-get update && sudo apt-get install libc6-dev libgmp-dev \
+    libnspr4-dev libnss3-dev autoconf libtool pkg-config libssl-dev \
+    build-essential -y
     git clone https://github.com/stefanberger/libtpms.git $LIBTPMS_DIR
     cd $LIBTPMS_DIR
     ./autogen.sh --with-tpm2 --with-openssl --prefix=/usr
@@ -78,7 +79,7 @@ if [[ "$setup_libs" == "true" ]]; then
     cd -
 
     mecho "Setting up swtpm"
-    sudo apt update && sudo apt install -y dh-autoreconf libssl-dev automake \
+    sudo apt-get install -y dh-autoreconf libssl-dev automake \
         autoconf bash coreutils libseccomp-dev make iproute2 expect libtool \
         sed fuse libfuse-dev libglib2.0-0 libglib2.0-dev libjson-glib-dev \
         net-tools python3 python3-twisted checkpolicy socat gawk trousers \
@@ -94,7 +95,7 @@ if [[ "$setup_libs" == "true" ]]; then
     cd -
     
     mecho "Setting up tpm2-tss"
-    sudo apt -y install autoconf-archive libcmocka0 libcmocka-dev procps \
+    sudo apt-get -y install autoconf-archive libcmocka0 libcmocka-dev procps \
         iproute2 build-essential git pkg-config gcc libtool automake libssl-dev \
         uthash-dev autoconf doxygen libjson-c-dev libini-config-dev \
         libcurl4-openssl-dev uuid-dev libltdl-dev libusb-1.0-0-dev \
