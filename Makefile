@@ -1,4 +1,4 @@
-tpmpath= /dev/tpm0
+tpmpath= /dev/tpmrm0
 # linux | linuxuds | simulator
 tpmtype= linux
 

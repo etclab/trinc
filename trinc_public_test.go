@@ -132,6 +132,8 @@ func TestAttestNVPCR(t *testing.T) {
 	}
 }
 
+var ctrAttestResultSink *trinc.CounterAttestation
+
 func BenchmarkAttestCounter(b *testing.B) {
 	hash, err := hashFile(MsgFile)
 	if err != nil {
@@ -142,10 +144,43 @@ func BenchmarkAttestCounter(b *testing.B) {
 	defer tk.Close()
 
 	for b.Loop() {
-		_, err := tk.AttestCounter(hash)
+		res, err := tk.AttestCounter(hash)
 		if err != nil {
 			b.Fatalf("error: can't generate counter attestation: %v", err)
 		}
+		ctrAttestResultSink = res
+	}
+}
+
+var boolResultSink bool
+
+func BenchmarkVerifyCounter(b *testing.B) {
+	pkFile := ECDSAPublicKeyFile
+
+	pk, err := trinc.LoadECDSAPublicKeyFromPEMFile(pkFile)
+	if err != nil {
+		mu.Fatalf("error: can't read public key file %q: %v", pkFile, err)
+	}
+
+	hash, err := hashFile(MsgFile)
+	if err != nil {
+		b.Fatalf("can't hash msg file %q: %v", MsgFile, err)
+	}
+
+	tk := createTrinketB(b)
+	defer tk.Close()
+
+	ctrAtt, err := tk.AttestCounter(hash)
+	if err != nil {
+		b.Fatalf("can't create counter attestation: %v", err)
+	}
+
+	for b.Loop() {
+		result := ctrAtt.Verify(pk)
+		if !result {
+			b.Fatalf("failure: attestation has an invalid signature")
+		}
+		boolResultSink = result
 	}
 }
 
@@ -166,15 +201,53 @@ func BenchmarkExtendNVPCR(b *testing.B) {
 	}
 }
 
+var nvpcrAttestResultSink *trinc.NVPCRAttestation
+
 func BenchmarkAttestNVPCR(b *testing.B) {
 	tk := createTrinketB(b)
 	defer tk.Close()
 
 	for b.Loop() {
-		_, err := tk.AttestNVPCR()
+		res, err := tk.AttestNVPCR()
 		if err != nil {
 			b.Fatalf("error: can't generate nvpcr attestation: %v", err)
 		}
+		nvpcrAttestResultSink = res
+	}
+}
+
+func BenchmarkVerifyNVPCR(b *testing.B) {
+	pkFile := ECDSAPublicKeyFile
+
+	pk, err := trinc.LoadECDSAPublicKeyFromPEMFile(pkFile)
+	if err != nil {
+		b.Fatalf("error: can't read public key file %q: %v", pkFile, err)
+	}
+
+	hash, err := hashFile(MsgFile)
+	if err != nil {
+		b.Fatalf("can't hash msg file %q: %v", MsgFile, err)
+	}
+
+	tk := createTrinketB(b)
+	defer tk.Close()
+
+	err = tk.ExtendNVPCR(hash)
+	if err != nil {
+		b.Fatalf("error: can't extend nvpcr: %v", err)
+	}
+
+	a, err := tk.AttestNVPCR()
+	if err != nil {
+		b.Fatalf("error: can't generate attestation: %v", err)
+	}
+
+	for b.Loop() {
+		result := a.Verify(pk)
+		if !result {
+			b.Fatalf("failure: attestation has an invalid signature")
+		}
+		boolResultSink = result
 	}
 }
 

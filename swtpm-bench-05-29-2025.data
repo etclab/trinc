@@ -1,0 +1,31 @@
+/usr/local/go/bin/go fmt ./...
+/usr/local/go/bin/go vet ./...
+sudo /usr/local/go/bin/go test -v -bench=. -benchmem -args -path /dev/tpmrm0 -type linux
+=== RUN   TestNewTrinket
+--- PASS: TestNewTrinket (0.01s)
+=== RUN   TestAttestCounter
+--- PASS: TestAttestCounter (0.01s)
+=== RUN   TestAttestNVPCR
+--- PASS: TestAttestNVPCR (0.01s)
+goos: linux
+goarch: amd64
+pkg: github.com/etclab/trinc
+cpu: Intel(R) Xeon(R) CPU E5-2630 v3 @ 2.40GHz
+BenchmarkAttestCounter
+BenchmarkAttestCounter-32           	     501	   2354117 ns/op	   57124 B/op	    1740 allocs/op
+BenchmarkVerifyCounter
+BenchmarkVerifyCounter-32           	    8660	    136697 ns/op	    1192 B/op	      25 allocs/op
+BenchmarkExtendNVPCR
+BenchmarkExtendNVPCR-32             	    1621	   1131538 ns/op	   44225 B/op	    1370 allocs/op
+BenchmarkAttestNVPCR
+BenchmarkAttestNVPCR-32             	     519	   2185435 ns/op	   36113 B/op	    1155 allocs/op
+BenchmarkVerifyNVPCR
+BenchmarkVerifyNVPCR-32             	    7942	    149204 ns/op	    1088 B/op	      22 allocs/op
+BenchmarkExtendAndAttestNVPCR
+BenchmarkExtendAndAttestNVPCR-32    	     350	   3452577 ns/op	   80338 B/op	    2525 allocs/op
+BenchmarkSoftwareECDSASign
+BenchmarkSoftwareECDSASign-32       	   12276	     99218 ns/op	    6336 B/op	      67 allocs/op
+BenchmarkHardwareECDSASign
+BenchmarkHardwareECDSASign-32       	     685	   1474096 ns/op	   13752 B/op	     477 allocs/op
+PASS
+ok  	github.com/etclab/trinc	10.044s
