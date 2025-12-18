@@ -87,6 +87,8 @@ if [[ "$setup_libs" == "true" ]]; then
         gnutls-bin
     git clone https://github.com/stefanberger/swtpm.git $SWTTPM_DIR
     cd $SWTTPM_DIR
+    # a change in swtpm repo broke the build, so checkout a known good commit
+    git checkout 4da66c66f92438443e66b67555673c9cb898b0ae
     export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
     ./autogen.sh --with-tpm2 --with-openssl --prefix=/usr
     make -j$(nproc)
@@ -122,11 +124,14 @@ if [[ "$setup_libs" == "true" ]]; then
 fi
 
 if [[ "$create_tpm" == "true" ]]; then
+    # cleanup existing tpm
+    sudo pkill swtpm_cuse || true
+    sudo rm -rf /dev/tpmrm0
 
-    mecho "Creating tpm state folder in /tpm/myvtpm2"
     sudo rm -rf /tmp/myvtpm2
     sudo rm -rf /tmp/swtpm_cuse.log
 
+    mecho "Creating tpm state folder in /tpm/myvtpm2"
     sudo mkdir -p /tmp/myvtpm2
     sudo chown tss:root /tmp/myvtpm2
 
